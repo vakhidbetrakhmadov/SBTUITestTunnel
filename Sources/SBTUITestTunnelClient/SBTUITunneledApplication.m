@@ -54,7 +54,10 @@
 - (void)tunnelClient:(SBTUITestTunnelClient *)sender didShutdownWithError:(NSError *)error
 {
     if (error != nil) {
-        NSAssert(NO, error.localizedDescription);
+        // Launch failure must stop the test even when assertions are compiled out.
+        @throw [NSException exceptionWithName:NSInternalInconsistencyException
+                                       reason:error.localizedDescription
+                                     userInfo:@{NSUnderlyingErrorKey: error}];
     }
 }
 

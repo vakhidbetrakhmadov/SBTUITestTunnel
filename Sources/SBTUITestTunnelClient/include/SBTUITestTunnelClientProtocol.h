@@ -51,7 +51,8 @@
 #pragma mark - Timeout
 
 /**
- *  Change the default timeout for the tunnel connection. Should be used only as a workaround when using the tunnel on very slow hardwares
+ *  Change the default timeout for tunnel readiness after native application launch returns.
+ *  The handshake also runs during native launch, which is governed by XCTest timeouts.
  *
  *  @param timeout Timeout in seconds
  */
