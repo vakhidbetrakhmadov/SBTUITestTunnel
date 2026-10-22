@@ -32,11 +32,11 @@ final class LocalHTTPServer {
     private let routes: [String: Response]
     private var hitsByPath: [String: Int] = [:]
 
-    init(routes: [String: Response]) throws {
+    init(routes: [String: Response], port: UInt16 = 0) throws {
         self.routes = routes
 
         let parameters = NWParameters.tcp
-        parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: .any)
+        parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: NWEndpoint.Port(rawValue: port) ?? .any)
         listener = try NWListener(using: parameters)
 
         let ready = DispatchSemaphore(value: 0)

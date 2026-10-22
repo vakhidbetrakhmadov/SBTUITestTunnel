@@ -118,6 +118,91 @@ class MiscellaneousTests: XCTestCase {
         XCTAssert(startupBlockProcessed)
     }
 
+    func testCompletedHandshakeSurvivesSlowNativeLaunchReturn() {
+        withLaunchFixture { fixture in
+            var server: LocalHTTPServer?
+            var startupCalls = 0
+            fixture.nativeLaunch = {
+                server = self.launchServer(port: fixture.port)
+                self.wait(withTimeout: 7, assertOnFailure: false) { false }
+                XCTAssertEqual(startupCalls, 1)
+            }
+            fixture.client.launchTunnel { startupCalls += 1 }
+            XCTAssertNotNil(server)
+            XCTAssertTrue(fixture.errors.isEmpty)
+        }
+    }
+
+    func testHTTPHandshakeSurvivesSlowNativeLaunch() {
+        withLaunchFixture { fixture in
+            var server: LocalHTTPServer?
+            var startupCalls = 0
+            fixture.nativeLaunch = {
+                let port = fixture.port
+                self.wait(withTimeout: 9, assertOnFailure: false) { false }
+                server = self.launchServer(port: port)
+                self.wait(withTimeout: 3) { startupCalls == 1 }
+            }
+            fixture.client.launchTunnel { startupCalls += 1 }
+            XCTAssertNotNil(server)
+            XCTAssertEqual(startupCalls, 1)
+            XCTAssertTrue(fixture.errors.isEmpty)
+        }
+    }
+
+    func testUnavailableServerTimesOutAfterNativeLaunch() {
+        withLaunchFixture { fixture in
+            fixture.nativeLaunch = { self.wait(withTimeout: 3, assertOnFailure: false) { false } }
+            let start = ProcessInfo.processInfo.systemUptime
+            fixture.client.launchTunnel()
+            XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - start, 9)
+            XCTAssertEqual(fixture.errors.count, 1)
+            XCTAssertTrue(fixture.shutdownOnMainThread)
+            XCTAssertEqual(fixture.launchArguments, ["original"])
+            XCTAssertEqual(fixture.launchEnvironment, ["original": "value"])
+            wait(withTimeout: 1, assertOnFailure: false) { false }
+            XCTAssertEqual(fixture.errors.count, 1)
+        }
+    }
+
+    func testNativeLaunchExceptionCancelsPolling() {
+        withLaunchFixture { fixture in
+            let original = NSException(name: .init(rawValue: "NativeLaunchFailure"), reason: "fixture", userInfo: nil)
+            fixture.nativeException = original
+            XCTAssertTrue(fixture.launchCatchingException() === original)
+            XCTAssertNil(fixture.client.value(forKey: "launchState"))
+            XCTAssertEqual(fixture.launchEnvironment, ["original": "value"])
+            wait(withTimeout: 2.5, assertOnFailure: false) { false }
+            XCTAssertTrue(fixture.errors.isEmpty)
+        }
+    }
+
+    func testDefaultShutdownHandlerThrows() {
+        let error = NSError(domain: "fixture", code: 1, userInfo: [NSLocalizedDescriptionKey: "Tunnel unavailable"])
+        XCTAssertEqual(ClientLaunchFixture.defaultShutdownException(for: error)?.name, .internalInconsistencyException)
+    }
+
+    private func withLaunchFixture(_ test: (ClientLaunchFixture) -> Void) {
+        SBTUITestTunnelClient.setConnectionTimeout(6)
+        let fixture = ClientLaunchFixture()
+        defer {
+            fixture.nativeLaunch = nil
+            fixture.client.terminate()
+            SBTUITestTunnelClient.setConnectionTimeout(30)
+        }
+        test(fixture)
+    }
+
+    private func launchServer(port: UInt16) -> LocalHTTPServer? {
+        let response = LocalHTTPServer.Response(statusCode: 200, headers: ["Content-Type": "application/json"], body: "{\"result\":\"YES\"}")
+        do {
+            return try LocalHTTPServer(routes: ["/commandPing": response, "/commandStartupCompleted": response], port: port)
+        } catch {
+            XCTFail("Failed to start launch fixture server on port \(port): \(error)")
+            return nil
+        }
+    }
+
     func testCustomCommand() {
         app.launchTunnel(withOptions: [SBTUITunneledApplicationLaunchOptionResetFilesystem])
 

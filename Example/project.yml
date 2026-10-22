@@ -32,6 +32,7 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: "SBTUITestTunnel_Tests/Info.plist"
+        SWIFT_OBJC_BRIDGING_HEADER: "SBTUITestTunnel_Tests/ClientLaunchFixture.h"
     sources:
       - SBTUITestTunnel_Tests
     dependencies:

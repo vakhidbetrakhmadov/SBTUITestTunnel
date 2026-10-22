@@ -51,7 +51,10 @@
 #pragma mark - Timeout
 
 /**
- *  Change the default timeout for the tunnel connection. Should be used only as a workaround when using the tunnel on very slow hardwares
+ *  Change the default timeout for tunnel readiness and command request waits.
+ *  Should be used only as a workaround when using the tunnel on very slow hardwares.
+ *  The readiness timeout starts after XCUIApplication.launch() returns.
+ *  The handshake also runs during XCUIApplication.launch(), whose timeout is governed by XCTest.
  *
  *  @param timeout Timeout in seconds
  */
